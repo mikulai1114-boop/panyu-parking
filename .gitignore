@@ -6,6 +6,12 @@
 每日現金支付統計/月份資料/
 每日停車券統計/*.xlsx
 
+# 敏感設定檔（需手動建立，勿上傳）
+主程式/config.txt
+主程式/gmail_config.txt
+主程式/last_run.txt
+主程式/run_log.txt
+
 # Python 快取
 __pycache__/
 *.pyc
