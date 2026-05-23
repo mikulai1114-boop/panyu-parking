@@ -1,12 +1,9 @@
-"""每日確認前一天資料是否已更新，結果寄信通知"""
-import os, smtplib, glob
+"""每日確認前一天資料是否已更新，缺漏時自動補跑"""
+import os, glob
 from datetime import datetime, timedelta
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 import openpyxl
 
-CONFIG       = r"C:\temp\parking\config.txt"
-GMAIL_CONFIG = r"C:\temp\parking\gmail_config.txt"
+CONFIG = r"C:\temp\parking\config.txt"
 
 with open(CONFIG, encoding="utf-8") as f:
     WORKBOOK = f.read().strip()
@@ -47,57 +44,26 @@ def check(date_obj):
 
     return True, total, max(records - 1, 0)  # 扣掉表頭
 
-def send_email(subject, body):
-    with open(GMAIL_CONFIG, encoding="utf-8-sig") as f:
-        lines = f.read().splitlines()
-    sender   = lines[0].strip()
-    password = lines[1].strip().replace(" ", "")
-    receiver = "mikulai1114@gmail.com"
-
-    msg = MIMEMultipart()
-    msg["From"]    = sender
-    msg["To"]      = receiver
-    msg["Subject"] = subject
-    msg.attach(MIMEText(body, "plain", "utf-8"))
-
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as s:
-        s.login(sender, password)
-        s.send_message(msg)
 
 def main():
+    import importlib.util
     yesterday = (datetime.now() - timedelta(days=1)).date()
     date_str  = yesterday.strftime("%Y-%m-%d")
 
     ok, total, records = check(yesterday)
 
     if ok:
-        status  = "[OK] 已更新"
-        subject = f"[停車場] {date_str} 資料已更新"
-        body    = (
-            f"磐鈺雲華商業停車場 每日確認\n\n"
-            f"日期：{date_str}\n"
-            f"狀態：已更新\n"
-            f"筆數：{records} 筆\n"
-            f"合計：${total:,}\n"
-        )
+        print(f"  [每日確認] {date_str} OK  {records} 筆  合計 ${total:,}")
     else:
-        status  = "[缺漏]"
-        subject = f"[停車場] {date_str} 資料缺漏，請確認"
-        body    = (
-            f"磐鈺雲華商業停車場 每日確認\n\n"
-            f"日期：{date_str}\n"
-            f"狀態：資料未更新\n\n"
-            f"請手動執行：\n"
-            f"python C:\\temp\\parking\\import.py {date_str}\n"
-        )
-
-    print(f"  [每日確認] {date_str} {status}  合計 ${total:,}")
-
-    try:
-        send_email(subject, body)
-        print(f"  [每日確認] 通知信已寄出")
-    except Exception as e:
-        print(f"  [每日確認] 寄信失敗：{e}")
+        print(f"  [每日確認] {date_str} 資料缺漏，自動補跑...")
+        spec = importlib.util.spec_from_file_location("parking", r"C:\temp\parking\import.py")
+        mod  = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        try:
+            mod.run(date_str)
+            print(f"  [每日確認] 補跑完成")
+        except Exception as e:
+            print(f"  [每日確認] 補跑失敗：{e}")
 
 if __name__ == "__main__":
     main()
